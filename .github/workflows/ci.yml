@@ -38,7 +38,7 @@ jobs:
     - name: Build application
       run: |
         echo "🏗️ Building application..."
-        bun run build:tsc
+        bun run build
         echo "✅ Build successful"
 
     - name: Run tests

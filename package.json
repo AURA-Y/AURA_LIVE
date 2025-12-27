@@ -3,9 +3,14 @@
   "version": "1.0.0",
   "description": "LiveKit Token Server",
   "scripts": {
-    "start": "node dist/main.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
-    "build": "tsc"
+    "start": "bun run dist/main.js",
+    "start:prod": "bun run dist/main.js",
+    "dev": "bun --watch src/main.ts",
+    "build": "tsc",
+    "build:docker": "docker build -t aura-backend .",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f backend"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
