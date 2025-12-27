@@ -1,8 +1,75 @@
 import { Injectable } from "@nestjs/common";
-import { AccessToken } from "livekit-server-sdk";
+import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
+import { RoomMetadata } from "./dto/create-room.dto";
 
 @Injectable()
 export class RoomService {
+  private roomClient: RoomServiceClient;
+  private roomMetadata: Map<string, RoomMetadata> = new Map(); // In-memory storage
+
+  constructor() {
+    const livekitUrl = process.env.LIVEKIT_URL || "ws://localhost:7880";
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+
+    if (!apiKey || !apiSecret) {
+      console.warn("LiveKit credentials not configured");
+    }
+
+    this.roomClient = new RoomServiceClient(livekitUrl, apiKey, apiSecret);
+  }
+  /**
+   * LiveKit 서버에 방 생성
+   * @param roomName 방 이름
+   * @param maxParticipants 최대 인원 (기본값: 10)
+   * @returns 생성된 방 정보
+   */
+  async createRoomOnLiveKit(
+    roomName: string,
+    maxParticipants: number = 10
+  ) {
+    try {
+      const room = await this.roomClient.createRoom({
+        name: roomName,
+        emptyTimeout: 300, // 5분 동안 비어있으면 자동 삭제
+        maxParticipants,
+      });
+
+      console.log("Room created on LiveKit:", {
+        name: room.name,
+        sid: room.sid,
+        maxParticipants: room.maxParticipants,
+      });
+
+      return room;
+    } catch (error) {
+      console.error("Failed to create room on LiveKit:", error);
+      throw new Error(`Failed to create room: ${error.message}`);
+    }
+  }
+
+  /**
+   * 방 메타데이터 저장
+   */
+  saveRoomMetadata(metadata: RoomMetadata) {
+    this.roomMetadata.set(metadata.roomId, metadata);
+    console.log(`Room metadata saved: ${metadata.roomId}`);
+  }
+
+  /**
+   * 방 메타데이터 조회
+   */
+  getRoomMetadata(roomId: string): RoomMetadata | undefined {
+    return this.roomMetadata.get(roomId);
+  }
+
+  /**
+   * 모든 방 목록 조회
+   */
+  getAllRooms(): RoomMetadata[] {
+    return Array.from(this.roomMetadata.values());
+  }
+
   /**
    * LiveKit Token 생성
    * @param roomName 방 이름
