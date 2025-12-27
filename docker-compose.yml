@@ -19,20 +19,28 @@ services:
   # Backend (NestJS)
   backend:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
+      - NODE_ENV=production
       - LIVEKIT_API_KEY=devkey
       - LIVEKIT_API_SECRET=dev1234567890abcdefghijklmnopqrstuvwxyz1234567890
       - LIVEKIT_URL=ws://livekit:7880
       - PORT=3001
     depends_on:
-      - livekit
+      livekit:
+        condition: service_started
     networks:
       - webrtc-network
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
 
   # PostgreSQL (나중에 사용)
   # postgres:
