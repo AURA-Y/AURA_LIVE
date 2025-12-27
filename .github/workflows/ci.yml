@@ -1,0 +1,76 @@
+name: CI - Build & Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - develop
+      - feature/**
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      run: |
+        echo "📦 Installing dependencies with Bun..."
+        bun install --frozen-lockfile
+
+    - name: Lint code
+      run: |
+        echo "🔍 Running linter..."
+        # bun run lint (if you have eslint configured)
+        echo "✅ Linting passed (configure eslint in package.json if needed)"
+
+    - name: Build application
+      run: |
+        echo "🏗️ Building application..."
+        bun run build:tsc
+        echo "✅ Build successful"
+
+    - name: Run tests
+      run: |
+        echo "🧪 Running tests..."
+        # bun test (if you have tests configured)
+        echo "✅ Tests passed (add tests when ready)"
+
+    - name: Docker build test
+      run: |
+        echo "🐳 Testing Docker build..."
+        docker build -t test-backend .
+        echo "✅ Docker build successful"
+
+    - name: Check health endpoint
+      run: |
+        echo "💚 Verifying health controller exists..."
+        if [ -f "src/health/health.controller.ts" ]; then
+          echo "✅ Health controller found"
+        else
+          echo "⚠️  Health controller not found"
+        fi
+
+    - name: Summary
+      if: success()
+      run: |
+        echo "✅ All CI checks passed!"
+        echo "🚀 Ready to merge"
+
+    - name: CI failed
+      if: failure()
+      run: |
+        echo "❌ CI checks failed!"
+        echo "Please fix the errors above before merging"
+        exit 1

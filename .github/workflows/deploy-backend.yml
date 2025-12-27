@@ -1,0 +1,120 @@
+name: Deploy Backend to ECS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'Dockerfile'
+      - 'tsconfig.json'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: aura-live/backend
+  ECS_CLUSTER: aura-live-cluster
+  ECS_SERVICE: aura-live-backend
+  ECS_TASK_DEFINITION: aura-live-backend
+  CONTAINER_NAME: backend
+
+jobs:
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        echo "🏗️ Building Docker image with Bun..."
+
+        # Build Docker image with cache
+        docker buildx build \
+          --platform linux/amd64 \
+          --cache-from=$ECR_REGISTRY/$ECR_REPOSITORY:latest \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+          --load \
+          .
+
+        echo "📦 Pushing images to ECR..."
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+        echo "✅ Image pushed successfully"
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    - name: Download current task definition
+      run: |
+        echo "📥 Downloading current ECS task definition..."
+        aws ecs describe-task-definition \
+          --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+          --query taskDefinition > task-definition.json
+
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: ${{ env.CONTAINER_NAME }}
+        image: ${{ steps.build-image.outputs.image }}
+
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
+
+    - name: Get deployment status
+      if: always()
+      run: |
+        echo "📊 Deployment Status"
+        echo "===================="
+        aws ecs describe-services \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --services ${{ env.ECS_SERVICE }} \
+          --query 'services[0].events[0:3]' \
+          --output table
+
+    - name: Deployment result
+      if: success()
+      run: |
+        echo "✅ Backend deployment completed successfully!"
+        echo "🚀 Image: ${{ steps.build-image.outputs.image }}"
+        echo "📍 Region: ${{ env.AWS_REGION }}"
+        echo "🎯 Cluster: ${{ env.ECS_CLUSTER }}"
+        echo "⚙️  Service: ${{ env.ECS_SERVICE }}"
+
+    - name: Deployment failed
+      if: failure()
+      run: |
+        echo "❌ Backend deployment failed!"
+        echo "Check the logs above for details."
+        exit 1
