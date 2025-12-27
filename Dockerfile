@@ -14,7 +14,7 @@ COPY tsconfig.json ./
 COPY src ./src
 
 # Build the application with TypeScript
-RUN bun run build:tsc
+RUN bun run build
 
 # Production stage
 FROM oven/bun:1-alpine
