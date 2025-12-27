@@ -79,10 +79,6 @@ docker build -t aura-backend .
 docker run -p 3001:3001 aura-backend
 ```
 
-## AWS Deployment
-
-AWS 배포 관련 설정은 `aws/` 디렉토리를 참조하세요.
-
 ### VPC 구성
 - VPC, Subnet, Internet Gateway 등의 인프라 설정
 - Security Group 규칙
@@ -117,6 +113,15 @@ AWS 배포 관련 설정은 `aws/` 디렉토리를 참조하세요.
 | `LIVEKIT_API_SECRET` | LiveKit API 시크릿 | - |
 | `LIVEKIT_URL` | LiveKit 서버 URL | ws://livekit:7880 |
 | `PORT` | 서버 포트 | 3001 |
+
+## TODO..
+ 현재 livekit.yaml 설정:
+  - STUN 서버: Google 무료 STUN 서버 사용 중 (이미 설정됨)
+  - TURN 서버: 설정 안 됨
+
+  TURN 서버가 필요한 경우:
+  - 방화벽이나 엄격한 NAT 환경에서 WebRTC 연결이 실패할 때
+  - 프로덕션 환경에서 더 안정적인 연결을 원할 때
 
 ## License
 
